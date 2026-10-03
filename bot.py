@@ -42,19 +42,17 @@ def main_menu():
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🟩 📩 Get New Email",
+                    text="🟢 Get New Email",
                     callback_data="new_email"
-                )
-            ],
-            [
+                ),
                 InlineKeyboardButton(
-                    text="🟦 📥 Inbox",
+                    text="🔵 Inbox",
                     callback_data="inbox"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="🟨 🔄 Refresh",
+                    text="🟣 Refresh",
                     callback_data="refresh"
                 )
             ]
