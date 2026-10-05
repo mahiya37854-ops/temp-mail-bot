@@ -18,20 +18,12 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 
-# =========================================================
-# CONFIG
-# =========================================================
-
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 MAIL_API = "https://api.mail.tm"
 CHECK_INTERVAL = 10
 
-
-# =========================================================
-# BOT
-# =========================================================
 
 bot = Bot(
     token=BOT_TOKEN,
@@ -44,7 +36,7 @@ dp = Dispatcher()
 
 
 # =========================================================
-# USER DATA
+# STORAGE
 # =========================================================
 
 mailboxes = {}
@@ -52,10 +44,18 @@ seen_messages = {}
 
 
 # =========================================================
-# MAIN BUTTONS
+# BOTTOM BUTTONS
+#
+# Reference:
+#
+# 📩 Get New Email   |   📥 Inbox
+# ---------------------------------
+#           🔄 Refresh
+# ---------------------------------
 # =========================================================
 
 def main_menu():
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -81,10 +81,11 @@ def main_menu():
 
 
 # =========================================================
-# EMAIL COPY BUTTON
+# EMAIL COPY + MENU
 # =========================================================
 
 def email_keyboard(address):
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -97,20 +98,20 @@ def email_keyboard(address):
             ],
             [
                 InlineKeyboardButton(
+                    text="📩 Get New Email",
+                    callback_data="new_email",
+                    style="success",
+                ),
+                InlineKeyboardButton(
                     text="📥 Inbox",
                     callback_data="inbox",
                     style="primary",
                 ),
-                InlineKeyboardButton(
-                    text="🔄 Refresh",
-                    callback_data="refresh",
-                ),
             ],
             [
                 InlineKeyboardButton(
-                    text="📩 Get New Email",
-                    callback_data="new_email",
-                    style="success",
+                    text="🔄 Refresh",
+                    callback_data="refresh",
                 )
             ],
         ]
@@ -118,10 +119,11 @@ def email_keyboard(address):
 
 
 # =========================================================
-# OTP COPY BUTTON
+# OTP COPY
 # =========================================================
 
 def otp_keyboard(otp):
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -137,7 +139,7 @@ def otp_keyboard(otp):
 
 
 # =========================================================
-# API REQUEST
+# API
 # =========================================================
 
 async def api_request(
@@ -150,7 +152,9 @@ async def api_request(
     headers = {}
 
     if token:
-        headers["Authorization"] = f"Bearer {token}"
+        headers["Authorization"] = (
+            f"Bearer {token}"
+        )
 
     timeout = aiohttp.ClientTimeout(
         total=30
@@ -170,23 +174,24 @@ async def api_request(
             if response.status == 204:
                 return None
 
-            text = await response.text()
+            response_text = await response.text()
 
             if response.status >= 400:
+
                 raise Exception(
                     f"Mail API error "
                     f"{response.status}: "
-                    f"{text[:300]}"
+                    f"{response_text[:300]}"
                 )
 
-            if not text:
+            if not response_text:
                 return None
 
             return await response.json()
 
 
 # =========================================================
-# CREATE NEW MAILBOX
+# CREATE MAILBOX
 # =========================================================
 
 async def create_mailbox():
@@ -203,7 +208,7 @@ async def create_mailbox():
 
     if not domains:
         raise Exception(
-            "No mail domain available."
+            "No active Mail.tm domain."
         )
 
     domain = None
@@ -214,13 +219,18 @@ async def create_mailbox():
             "isActive",
             True
         ):
+
             domain = item.get(
                 "domain"
             )
+
             break
 
     if not domain:
-        domain = domains[0]["domain"]
+
+        domain = domains[0].get(
+            "domain"
+        )
 
     username = (
         "user"
@@ -262,10 +272,40 @@ async def create_mailbox():
 
 
 # =========================================================
-# GET INBOX
+# DELETE OLD MAILBOX
 # =========================================================
 
-async def get_messages(mailbox):
+async def delete_mailbox(
+    mailbox
+):
+
+    if not mailbox:
+        return
+
+    try:
+
+        await api_request(
+            "DELETE",
+            f"{MAIL_API}/accounts/"
+            f"{mailbox['id']}",
+            token=mailbox["token"],
+        )
+
+    except Exception as error:
+
+        print(
+            "Delete mailbox error:",
+            error
+        )
+
+
+# =========================================================
+# GET MESSAGES
+# =========================================================
+
+async def get_messages(
+    mailbox
+):
 
     data = await api_request(
         "GET",
@@ -280,7 +320,7 @@ async def get_messages(mailbox):
 
 
 # =========================================================
-# GET FULL EMAIL
+# FULL MESSAGE
 # =========================================================
 
 async def get_full_message(
@@ -296,68 +336,43 @@ async def get_full_message(
 
 
 # =========================================================
-# DELETE OLD MAILBOX
+# OTP
 # =========================================================
 
-async def delete_mailbox(mailbox):
-
-    if not mailbox:
-        return
-
-    try:
-
-        await api_request(
-            "DELETE",
-            f"{MAIL_API}/accounts/{mailbox['id']}",
-            token=mailbox["token"],
-        )
-
-    except Exception as error:
-
-        print(
-            "Old mailbox delete error:",
-            error
-        )
-
-
-# =========================================================
-# OTP DETECTOR
-# =========================================================
-
-def extract_otp(message):
+def extract_otp(data):
 
     parts = [
-        message.get("subject") or "",
-        message.get("intro") or "",
-        message.get("text") or "",
+        data.get("subject") or "",
+        data.get("intro") or "",
+        data.get("text") or "",
     ]
 
-    html_body = message.get(
-        "html"
-    )
+    body = data.get("html")
 
-    if isinstance(
-        html_body,
-        list
-    ):
+    if isinstance(body, list):
+
         parts.extend(
             str(x)
-            for x in html_body
+            for x in body
         )
 
-    elif html_body:
+    elif body:
+
         parts.append(
-            str(html_body)
+            str(body)
         )
 
     content = "\n".join(parts)
 
     patterns = [
-        r"(?:OTP|verification code|security code|code)"
+
+        r"(?:OTP|verification code|"
+        r"security code|code)"
         r"[\s:=\-#]*([0-9]{4,8})",
 
         r"([0-9]{4,8})"
-        r"\s*(?:is your|is the|verification code)",
+        r"\s*(?:is your|is the|"
+        r"verification code)",
     ]
 
     for pattern in patterns:
@@ -369,30 +384,35 @@ def extract_otp(message):
         )
 
         if match:
+
             return match.group(1)
 
-    matches = re.findall(
+    numbers = re.findall(
         r"\b[0-9]{4,8}\b",
         content,
     )
 
-    for value in matches:
+    for number in numbers:
 
         if (
-            len(value) == 4
-            and value.startswith(
+            len(number) == 4
+            and number.startswith(
                 ("19", "20")
             )
         ):
             continue
 
-        return value
+        return number
 
     return None
 
 
 # =========================================================
-# WELCOME SCREEN
+# START
+#
+# Reference image:
+# /start -> ONLY welcome card.
+# No Inbox(0) here.
 # =========================================================
 
 @dp.message(CommandStart())
@@ -400,7 +420,7 @@ async def start_command(
     message: Message
 ):
 
-    text = (
+    welcome = (
         "✨ <b>Welcome to Temp Mail Bot!</b>\n\n"
         "Create a temporary email address,\n"
         "receive emails, and manage your inbox\n"
@@ -408,9 +428,13 @@ async def start_command(
         "Use the buttons below to get started."
     )
 
+    # IMPORTANT:
+    # Start message itself only contains Welcome.
+    #
+    # Buttons are shown on the email/dashboard
+    # after Get New Email, matching the reference.
     await message.answer(
-        text,
-        reply_markup=main_menu(),
+        welcome
     )
 
 
@@ -437,42 +461,47 @@ async def new_email(
 
     try:
 
-        new_mailbox = (
-            await create_mailbox()
-        )
+        # Create new mailbox first
+        mailbox = await create_mailbox()
 
-        # Save new mailbox
-        mailboxes[user_id] = (
-            new_mailbox
-        )
+        # Save it
+        mailboxes[user_id] = mailbox
 
-        # Reset old notifications
+        # Reset notification history
         seen_messages[user_id] = set()
 
-        # Delete previous mailbox
+        # Delete old mailbox
         if old_mailbox:
 
             await delete_mailbox(
                 old_mailbox
             )
 
-        text = (
-            "📩 <b>New Email Created!</b>\n\n"
+        domain = mailbox[
+            "address"
+        ].split("@")[-1]
 
-            "📧 <b>Your temporary email:</b>\n"
-            f"<code>{html.escape(new_mailbox['address'])}</code>\n\n"
+        text = (
+            "✅ <b>Your temporary email address "
+            "has been created!</b>\n\n"
+
+            "📧 <b>Your temporary email</b>\n\n"
+
+            f"<code>{html.escape(mailbox['address'])}</code>\n\n"
+
+            f"🌐 Domain: <b>{html.escape(domain)}</b>\n"
+
+            "⏱ Valid for: "
+            "<b>60 minutes (approx.)</b>\n\n"
 
             "📥 <b>Inbox (0)</b>\n"
-            "No new messages yet.\n\n"
-
-            "Send an email to the address above.\n"
-            "New messages will appear automatically."
+            "No new messages yet."
         )
 
         await callback.message.edit_text(
             text,
             reply_markup=email_keyboard(
-                new_mailbox["address"]
+                mailbox["address"]
             ),
         )
 
@@ -484,14 +513,14 @@ async def new_email(
         )
 
         await callback.message.edit_text(
-            "❌ <b>Could not create email.</b>\n\n"
-            "Please try again.",
-            reply_markup=main_menu(),
+            "❌ <b>Could not create "
+            "temporary email.</b>\n\n"
+            "Please try again."
         )
 
 
 # =========================================================
-# BUILD INBOX
+# INBOX TEXT
 # =========================================================
 
 async def build_inbox(
@@ -504,44 +533,34 @@ async def build_inbox(
 
     if not messages:
 
-        text = (
+        return (
             "📥 <b>Inbox (0)</b>\n\n"
 
             f"📧 <code>"
             f"{html.escape(mailbox['address'])}"
             f"</code>\n\n"
 
-            "📭 <b>No new messages yet.</b>\n\n"
-            "🔄 Press Refresh to check again."
+            "📭 <b>No new messages yet.</b>"
         )
-
-        return text
 
     lines = [
         f"📥 <b>Inbox ({len(messages)})</b>",
         "",
-        f"📧 <code>"
-        f"{html.escape(mailbox['address'])}"
-        f"</code>",
-        "",
     ]
 
-    for index, message in enumerate(
-        messages[:10],
-        start=1,
-    ):
+    for message in messages[:10]:
 
         sender = (
             message.get("from")
             or {}
         )
 
-        sender_name = (
+        name = (
             sender.get("name")
             or "Unknown"
         )
 
-        sender_address = (
+        address = (
             sender.get("address")
             or "Unknown"
         )
@@ -557,18 +576,28 @@ async def build_inbox(
         )
 
         lines.append(
-            f"✉️ <b>{index}. "
-            f"{html.escape(str(subject))}"
-            f"</b>\n"
-
-            f"👤 "
-            f"{html.escape(str(sender_name))} "
-            f"&lt;"
-            f"{html.escape(str(sender_address))}"
-            f"&gt;\n"
-
-            f"{html.escape(str(intro)[:200])}\n"
+            "━━━━━━━━━━━━━━"
         )
+
+        lines.append(
+            f"👤 <b>{html.escape(str(name))}</b>"
+        )
+
+        lines.append(
+            f"<code>{html.escape(str(address))}</code>"
+        )
+
+        lines.append(
+            f"📌 {html.escape(str(subject))}"
+        )
+
+        if intro:
+
+            lines.append(
+                html.escape(
+                    str(intro)[:250]
+                )
+            )
 
     return "\n".join(lines)
 
@@ -595,9 +624,8 @@ async def inbox(
     if not mailbox:
 
         await callback.message.edit_text(
-            "⚠️ <b>No email created yet.</b>\n\n"
-            "Press 📩 Get New Email first.",
-            reply_markup=main_menu(),
+            "⚠️ <b>No temporary email yet.</b>\n\n"
+            "Please create a new email first."
         )
 
         return
@@ -621,8 +649,7 @@ async def inbox(
         )
 
         await callback.message.edit_text(
-            "❌ <b>Could not load Inbox.</b>\n\n"
-            "Please press 🔄 Refresh.",
+            "❌ <b>Could not load Inbox.</b>",
             reply_markup=main_menu(),
         )
 
@@ -651,9 +678,7 @@ async def refresh(
     if not mailbox:
 
         await callback.message.edit_text(
-            "⚠️ <b>No email created yet.</b>\n\n"
-            "Press 📩 Get New Email first.",
-            reply_markup=main_menu(),
+            "⚠️ <b>No temporary email yet.</b>"
         )
 
         return
@@ -677,17 +702,16 @@ async def refresh(
         )
 
         await callback.message.edit_text(
-            "❌ <b>Refresh failed.</b>\n\n"
-            "Please try again.",
+            "❌ <b>Refresh failed.</b>",
             reply_markup=main_menu(),
         )
 
 
 # =========================================================
-# AUTO EMAIL CHECKER
+# AUTO MAIL CHECK
 # =========================================================
 
-async def check_user_mail(
+async def check_mailbox(
     user_id,
     mailbox
 ):
@@ -703,13 +727,12 @@ async def check_user_mail(
             seen_messages[user_id] = set()
 
         current_ids = {
-            message.get("id")
-            for message in messages
-            if message.get("id")
+            m.get("id")
+            for m in messages
+            if m.get("id")
         }
 
-        # First check:
-        # existing mails are not treated as new
+        # First scan = baseline
         if not seen_messages[user_id]:
 
             seen_messages[user_id].update(
@@ -729,7 +752,10 @@ async def check_user_mail(
             if not message_id:
                 continue
 
-            if message_id in seen_messages[user_id]:
+            if (
+                message_id
+                in seen_messages[user_id]
+            ):
                 continue
 
             seen_messages[user_id].add(
@@ -738,19 +764,17 @@ async def check_user_mail(
 
             try:
 
-                full_message = (
-                    await get_full_message(
-                        mailbox,
-                        message_id,
-                    )
+                full = await get_full_message(
+                    mailbox,
+                    message_id,
                 )
 
             except Exception:
 
-                full_message = message
+                full = message
 
             sender = (
-                full_message.get("from")
+                full.get("from")
                 or {}
             )
 
@@ -765,65 +789,76 @@ async def check_user_mail(
             )
 
             subject = (
-                full_message.get("subject")
+                full.get("subject")
                 or "(No subject)"
             )
 
             intro = (
-                full_message.get("intro")
+                full.get("intro")
                 or ""
             )
 
             otp = extract_otp(
-                full_message
+                full
             )
 
             # -----------------------------------------
             # NEW EMAIL NOTIFICATION
             # -----------------------------------------
 
-            email_text = (
-                "📩 <b>New Email Received!</b>\n\n"
+            notification = (
+                "📩 <b>New email received!</b>\n\n"
 
-                f"👤 <b>From:</b> "
-                f"{html.escape(str(sender_name))}\n"
+                f"<b>From:</b> "
+                f"{html.escape(str(sender_name))} "
+                f"&lt;"
+                f"{html.escape(str(sender_address))}"
+                f"&gt;\n"
 
-                f"📧 <b>Email:</b> "
-                f"{html.escape(str(sender_address))}\n\n"
-
-                f"📌 <b>Subject:</b> "
+                f"<b>Subject:</b> "
                 f"{html.escape(str(subject))}\n\n"
 
-                "━━━━━━━━━━━━━━\n"
-
-                f"{html.escape(str(intro)[:700])}"
+                f"{html.escape(str(intro)[:500])}"
             )
+
+            if otp:
+
+                notification += (
+                    "\n\n"
+                    f"🔐 <b>OTP:</b> "
+                    f"<code>{html.escape(otp)}</code>"
+                )
 
             await bot.send_message(
                 user_id,
-                email_text,
+                notification,
+                reply_markup=(
+                    otp_keyboard(otp)
+                    if otp
+                    else None
+                ),
             )
 
             # -----------------------------------------
-            # OTP
+            # OTP NOTIFICATION
             # -----------------------------------------
 
             if otp:
 
-                otp_text = (
+                otp_message = (
                     "🔐 <b>OTP Detected!</b>\n\n"
 
                     "Your verification code is:\n\n"
 
                     f"<code>{html.escape(otp)}</code>\n\n"
 
-                    f"📨 From: "
-                    f"{html.escape(str(sender_name))}"
+                    f"(From: "
+                    f"{html.escape(str(sender_name))})"
                 )
 
                 await bot.send_message(
                     user_id,
-                    otp_text,
+                    otp_message,
                     reply_markup=otp_keyboard(
                         otp
                     ),
@@ -839,26 +874,24 @@ async def check_user_mail(
 
 
 # =========================================================
-# MAIL WATCHER
+# WATCHER
 # =========================================================
 
 async def mail_watcher():
 
     print(
-        "📬 Mail watcher started."
+        "📬 Automatic mail watcher started."
     )
 
     while True:
 
         try:
 
-            users = list(
+            for user_id, mailbox in list(
                 mailboxes.items()
-            )
+            ):
 
-            for user_id, mailbox in users:
-
-                await check_user_mail(
+                await check_mailbox(
                     user_id,
                     mailbox
                 )
@@ -888,8 +921,7 @@ async def main():
     if not BOT_TOKEN:
 
         raise RuntimeError(
-            "BOT_TOKEN is missing. "
-            "Add BOT_TOKEN in Railway Variables."
+            "BOT_TOKEN is missing."
         )
 
     print(
@@ -904,10 +936,6 @@ async def main():
         bot
     )
 
-
-# =========================================================
-# RUN
-# =========================================================
 
 if __name__ == "__main__":
     asyncio.run(main())
