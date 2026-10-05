@@ -433,9 +433,10 @@ async def start_command(
     #
     # Buttons are shown on the email/dashboard
     # after Get New Email, matching the reference.
-    await message.answer(
-        welcome
-    )
+await message.answer(
+    welcome,
+    reply_markup=main_menu(),
+)
 
 
 # =========================================================
