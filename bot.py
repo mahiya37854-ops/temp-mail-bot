@@ -416,9 +416,7 @@ def extract_otp(data):
 # =========================================================
 
 @dp.message(CommandStart())
-async def start_command(
-    message: Message
-):
+async def start_command(message: Message):
 
     welcome = (
         "✨ <b>Welcome to Temp Mail Bot!</b>\n\n"
@@ -428,16 +426,10 @@ async def start_command(
         "Use the buttons below to get started."
     )
 
-    # IMPORTANT:
-    # Start message itself only contains Welcome.
-    #
-    # Buttons are shown on the email/dashboard
-    # after Get New Email, matching the reference.
-await message.answer(
-    welcome,
-    reply_markup=main_menu(),
-)
-
+    await message.answer(
+        welcome,
+        reply_markup=main_menu(),
+    )
 
 # =========================================================
 # GET NEW EMAIL
