@@ -141,13 +141,11 @@ def otp_copy_keyboard(otp: str):
                     text="📋 Copy OTP",
                     copy_text=CopyTextButton(
                         text=otp
-                    ),
-                ]
+                    )
+                )
             ]
         ]
     )
-
-
 # =========================================================
 # API REQUEST
 # =========================================================
