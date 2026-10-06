@@ -89,7 +89,7 @@ def email_copy_keyboard(address: str):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="📋 Copy Email",
+                    text=f"📋 {address}",
                     copy_text=CopyTextButton(text=address),
                 )
             ]
