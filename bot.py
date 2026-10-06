@@ -366,7 +366,7 @@ async def new_email(message: Message):
 
         # Show the email as a copy button without removing the reply keyboard.
         await message.answer(
-            "📧 <b>Email:</b>",
+            "📧 <b>Your temporary email created!:</b>",
             reply_markup=email_copy_keyboard(mailbox["address"]),
         )
 
