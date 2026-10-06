@@ -328,6 +328,7 @@ async def start_command(message: Message):
     )
 
 
+```python
 # =========================================================
 # GET NEW EMAIL
 # =========================================================
@@ -337,11 +338,6 @@ async def new_email(message: Message):
     user_id = message.from_user.id
 
     old_mailbox = mailboxes.get(user_id)
-
-    status = await message.answer(
-        "⏳ <b>Creating new email...</b>",
-        reply_markup=main_keyboard(),
-    )
 
     try:
         mailbox = await create_mailbox()
@@ -356,17 +352,15 @@ async def new_email(message: Message):
         text = (
             "📧 <b>Your temporary email created!</b>\n\n"
             "⏱ Valid for: <b>60 minutes (approx.)</b>\n"
-            "📥 <b>Waiting for new messages!</b>"
+            "📥 <b>Waiting for new messages!</b>\n"
+            f"[{html.escape(mailbox['address'])}]"
         )
 
-        # Keep the bottom Reply Keyboard attached to the existing status message.
-        # Editing the text (without changing reply_markup) preserves the keyboard.
-        try:
-            await status.edit_text(text)
-        except Exception as edit_error:
-            print("Status edit warning:", edit_error)
+        await message.answer(
+            text,
+            reply_markup=main_keyboard(),
+        )
 
-        # Separate inline copy button for the email address.
         await message.answer(
             f"📧 <b>{html.escape(mailbox['address'])}</b>",
             reply_markup=email_copy_keyboard(mailbox["address"]),
@@ -375,18 +369,12 @@ async def new_email(message: Message):
     except Exception as error:
         print("New email error:", error)
 
-        try:
-            await status.delete()
-        except Exception:
-            pass
-
         await message.answer(
             "❌ <b>Could not create "
             "temporary email.</b>\n\n"
             "Please try again.",
             reply_markup=main_keyboard(),
         )
-
 
 # =========================================================
 # INBOX TEXT
