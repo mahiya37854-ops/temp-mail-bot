@@ -370,20 +370,40 @@ async def new_email(message: Message):
             "No new messages yet."
         )
 
-        await safe_edit(
-            status,
+        # Do NOT edit the "Creating..." message.
+        # Telegram can fail when switching a message that was sent
+        # with a ReplyKeyboardMarkup to an inline keyboard.
+        # Delete the temporary status and send the final message.
+        try:
+            await status.delete()
+        except Exception as delete_error:
+            print("Status delete warning:", delete_error)
+
+        await message.answer(
             text,
-            email_copy_keyboard(mailbox["address"]),
+            reply_markup=main_keyboard(),
+        )
+
+        # Copy Email is a separate inline button so the permanent
+        # Reply Keyboard stays below the chat.
+        await message.answer(
+            "📋 <b>Copy your temporary email</b>",
+            reply_markup=email_copy_keyboard(mailbox["address"]),
         )
 
     except Exception as error:
         print("New email error:", error)
 
-        await safe_edit(
-            status,
+        try:
+            await status.delete()
+        except Exception:
+            pass
+
+        await message.answer(
             "❌ <b>Could not create "
             "temporary email.</b>\n\n"
             "Please try again.",
+            reply_markup=main_keyboard(),
         )
 
 
