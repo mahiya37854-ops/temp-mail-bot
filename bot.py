@@ -359,10 +359,16 @@ async def new_email(message: Message):
             "📥 <b>Waiting for new messages!</b>"
         )
 
-        # Keep the existing Reply Keyboard and change the same message
-        # into the final email-created message with the copy button.
-        await status.edit_text(
-            text,
+        # Keep the bottom Reply Keyboard attached to the existing status message.
+        # Editing the text (without changing reply_markup) preserves the keyboard.
+        try:
+            await status.edit_text(text)
+        except Exception as edit_error:
+            print("Status edit warning:", edit_error)
+
+        # Separate inline copy button for the email address.
+        await message.answer(
+            f"📧 <b>{html.escape(mailbox['address'])}</b>",
             reply_markup=email_copy_keyboard(mailbox["address"]),
         )
 
