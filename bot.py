@@ -50,6 +50,7 @@ dp = Dispatcher()
 
 mailboxes = {}
 seen_messages = {}
+baseline_done = set()
 
 
 # =========================================================
@@ -347,6 +348,7 @@ async def new_email(message: Message):
 
         mailboxes[user_id] = mailbox
         seen_messages[user_id] = set()
+        baseline_done.discard(user_id)
 
         if old_mailbox:
             await delete_mailbox(old_mailbox)
@@ -527,10 +529,13 @@ async def check_mailbox(user_id, mailbox):
             if m.get("id")
         }
 
-        # First scan = baseline.
-        # Existing mail is not treated as new.
-        if not seen_messages[user_id]:
+        # Only the first scan is the baseline.
+        # IMPORTANT: even an empty inbox must be marked as initialized.
+        # Otherwise the first real email would incorrectly become the
+        # baseline and no automatic notification would be sent.
+        if user_id not in baseline_done:
             seen_messages[user_id].update(current_ids)
+            baseline_done.add(user_id)
             return
 
         for message in reversed(messages):
