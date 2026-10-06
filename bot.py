@@ -359,20 +359,11 @@ async def new_email(message: Message):
             "📥 <b>Waiting for new messages!</b>"
         )
 
-        try:
-            await status.delete()
-        except Exception as delete_error:
-            print("Status delete warning:", delete_error)
-
-        # One message only. The email itself is the copy button.
-        await message.answer(
+        # Keep the existing Reply Keyboard and change the same message
+        # into the final email-created message with the copy button.
+        await status.edit_text(
             text,
-        reply_markup=email_copy_keyboard(mailbox["address"]),
-        )
-
-        await message.answer(
-            "⠀",
-            reply_markup=main_keyboard(),
+            reply_markup=email_copy_keyboard(mailbox["address"]),
         )
 
     except Exception as error:
