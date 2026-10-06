@@ -89,7 +89,7 @@ def email_copy_keyboard(address: str):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"📋 {address}",
+                    text=f"📧 {address}",
                     copy_text=CopyTextButton(text=address),
                 )
             ]
@@ -327,6 +327,7 @@ async def start_command(message: Message):
         reply_markup=main_keyboard(),
     )
 
+
 # =========================================================
 # GET NEW EMAIL
 # =========================================================
@@ -336,6 +337,11 @@ async def new_email(message: Message):
     user_id = message.from_user.id
 
     old_mailbox = mailboxes.get(user_id)
+
+    status = await message.answer(
+        "⏳ <b>Creating new email...</b>",
+        reply_markup=main_keyboard(),
+    )
 
     try:
         mailbox = await create_mailbox()
@@ -350,17 +356,27 @@ async def new_email(message: Message):
         text = (
             "📧 <b>Your temporary email created!</b>\n\n"
             "⏱ Valid for: <b>60 minutes (approx.)</b>\n"
-            "📥 <b>Waiting for new messages!</b>\n"
-            f"📧 <b>{html.escape(mailbox['address'])}</b>"
+            "📥 <b>Waiting for new messages!</b>"
         )
 
+        try:
+            await status.delete()
+        except Exception as delete_error:
+            print("Status delete warning:", delete_error)
+
+        # Keep the main reply keyboard visible after creating the email.
         await message.answer(
             text,
             reply_markup=main_keyboard(),
         )
-        
+
     except Exception as error:
         print("New email error:", error)
+
+        try:
+            await status.delete()
+        except Exception:
+            pass
 
         await message.answer(
             "❌ <b>Could not create "
@@ -368,6 +384,7 @@ async def new_email(message: Message):
             "Please try again.",
             reply_markup=main_keyboard(),
         )
+
 
 # =========================================================
 # INBOX TEXT
