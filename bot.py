@@ -327,8 +327,6 @@ async def start_command(message: Message):
         reply_markup=main_keyboard(),
     )
 
-
-```python
 # =========================================================
 # GET NEW EMAIL
 # =========================================================
