@@ -89,7 +89,7 @@ def email_copy_keyboard(address: str):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="📋 Copy Email",
+                    text=f"📧 {address}",
                     copy_text=CopyTextButton(text=address),
                 )
             ]
@@ -102,7 +102,7 @@ def otp_keyboard(otp: str):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="📋 Copy OTP",
+                    text=otp,
                     copy_text=CopyTextButton(text=otp),
                 )
             ]
@@ -353,41 +353,20 @@ async def new_email(message: Message):
         if old_mailbox:
             await delete_mailbox(old_mailbox)
 
-        domain = mailbox["address"].split("@")[-1]
-
         text = (
-            "✅ <b>Your temporary email address "
-            "has been created!</b>\n\n"
-
-            "📧 <b>Your temporary email</b>\n\n"
-
-            f"<code>{html.escape(mailbox['address'])}</code>\n\n"
-
-            f"🌐 Domain: <b>{html.escape(domain)}</b>\n"
-            "⏱ Valid for: <b>60 minutes (approx.)</b>\n\n"
-
-            "📥 <b>Inbox (0)</b>\n"
-            "No new messages yet."
+            "📧 <b>Your temporary email created!</b>\n\n"
+            "⏱ Valid for: <b>60 minutes (approx.)</b>\n"
+            "📥 <b>Waiting for new messages!</b>"
         )
 
-        # Do NOT edit the "Creating..." message.
-        # Telegram can fail when switching a message that was sent
-        # with a ReplyKeyboardMarkup to an inline keyboard.
-        # Delete the temporary status and send the final message.
         try:
             await status.delete()
         except Exception as delete_error:
             print("Status delete warning:", delete_error)
 
+        # One message only. The email itself is the copy button.
         await message.answer(
             text,
-            reply_markup=main_keyboard(),
-        )
-
-        # Copy Email is a separate inline button so the permanent
-        # Reply Keyboard stays below the chat.
-        await message.answer(
-            "📋 <b>Copy your temporary email</b>",
             reply_markup=email_copy_keyboard(mailbox["address"]),
         )
 
@@ -433,31 +412,33 @@ async def build_inbox(mailbox):
     ]
 
     for message in messages[:10]:
-        sender = message.get("from") or {}
+        message_id = message.get("id")
+        full = message
+
+        if message_id:
+            try:
+                full = await get_full_message(mailbox, message_id)
+            except Exception as error:
+                print("Full inbox message error:", error)
+
+        sender = full.get("from") or {}
 
         name = sender.get("name") or "Unknown"
         address = sender.get("address") or "Unknown"
-        subject = message.get("subject") or "(No subject)"
-        intro = message.get("intro") or ""
+        subject = full.get("subject") or "(No subject)"
+        intro = full.get("intro") or ""
+        body_text = full.get("text") or ""
 
         lines.append("━━━━━━━━━━━━━━━━")
+        lines.append(f"👤 <b>From:</b> {html.escape(str(name))}")
+        lines.append(f"<code>{html.escape(str(address))}</code>")
+        lines.append(f"📌 <b>Subject:</b> {html.escape(str(subject))}")
 
-        lines.append(
-            f"👤 <b>{html.escape(str(name))}</b>"
-        )
+        body = str(body_text).strip() or str(intro).strip()
 
-        lines.append(
-            f"<code>{html.escape(str(address))}</code>"
-        )
-
-        lines.append(
-            f"📌 <b>{html.escape(str(subject))}</b>"
-        )
-
-        if intro:
-            lines.append(
-                html.escape(str(intro)[:300])
-            )
+        if body:
+            lines.append("")
+            lines.append(html.escape(body[:3000]))
 
     return "\n".join(lines)
 
@@ -599,31 +580,18 @@ async def check_mailbox(user_id, mailbox):
             otp = extract_otp(full)
 
             # -------------------------------------------------
-            # NEW EMAIL NOTIFICATION
+            # NEW EMAIL / OTP NOTIFICATION
             # -------------------------------------------------
 
             notification = (
-                "📩 <b>New email received!</b>\n\n"
-
-                f"<b>From:</b> "
-                f"{html.escape(str(sender_name))} "
-                f"&lt;"
-                f"{html.escape(str(sender_address))}"
-                f"&gt;\n"
-
-                f"<b>Subject:</b> "
-                f"{html.escape(str(subject))}\n"
-
-                "<b>Time:</b> Just now\n\n"
-
-                f"{html.escape(str(intro)[:500])}"
+                "📨 <b>New email received!</b>\n"
+                f"<b>From:</b> {html.escape(str(sender_address))}"
             )
 
             if otp:
                 notification += (
-                    "\n\n"
-                    f"🔐 <b>OTP:</b> "
-                    f"<code>{html.escape(otp)}</code>"
+                    "\n🔐 <b>OTP:</b> "
+                    f"{html.escape(otp)}"
                 )
 
             await bot.send_message(
@@ -635,30 +603,6 @@ async def check_mailbox(user_id, mailbox):
                     else None
                 ),
             )
-
-            # -------------------------------------------------
-            # OTP NOTIFICATION
-            # -------------------------------------------------
-
-            if otp:
-                otp_message = (
-                    "🔐 <b>OTP Detected!</b>\n\n"
-
-                    "Your verification code is:\n\n"
-
-                    f"<code>{html.escape(otp)}</code>\n\n"
-
-                    f"(From: "
-                    f"{html.escape(str(sender_name))})\n"
-
-                    "Time: Just now"
-                )
-
-                await bot.send_message(
-                    user_id,
-                    otp_message,
-                    reply_markup=otp_keyboard(otp),
-                )
 
     except Exception as error:
         print(
