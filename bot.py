@@ -89,7 +89,7 @@ def email_copy_keyboard(address: str):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"📧 {address}",
+                    text=f"📋 {address}",
                     copy_text=CopyTextButton(text=address),
                 )
             ]
@@ -359,18 +359,14 @@ async def new_email(message: Message):
             "📥 <b>Waiting for new messages!</b>"
         )
 
-        # Keep this message so the main reply keyboard stays visible.
         try:
-            await status.edit_text(
-                text,
-                reply_markup=None,
-            )
+            await status.edit_text(text)
         except Exception as edit_error:
             print("Status edit warning:", edit_error)
 
-        # Keep the email copy button as a separate inline button.
+        # Show the email as a copy button without removing the reply keyboard.
         await message.answer(
-            f"📧 <b>{html.escape(mailbox['address'])}</b>",
+            "📧 <b>Email:</b>",
             reply_markup=email_copy_keyboard(mailbox["address"]),
         )
 
