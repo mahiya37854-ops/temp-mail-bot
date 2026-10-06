@@ -89,7 +89,7 @@ def email_copy_keyboard(address: str):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"📧 {address}",
+                    text="📋 Copy Email",
                     copy_text=CopyTextButton(text=address),
                 )
             ]
@@ -356,10 +356,6 @@ async def new_email(message: Message):
         await message.answer(
             text,
             reply_markup=main_keyboard(),
-        )
-        await message.answer(
-            f"📧 <b>{html.escape(mailbox['address'])}</b>",
-            reply_markup=email_copy_keyboard(mailbox["address"]),
         )
         
     except Exception as error:
