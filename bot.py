@@ -359,7 +359,7 @@ async def new_email(message: Message):
             "📥 <b>Waiting for new messages!</b>"
         )
 
-                try:
+        try:
             await status.delete()
         except Exception as delete_error:
             print("Status delete warning:", delete_error)
