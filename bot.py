@@ -370,7 +370,6 @@ async def new_email(message: Message):
             reply_markup=email_copy_keyboard(mailbox["address"]),
         )
         await message.answer(
-            "👇",
             reply_markup=main_keyboard(),
         )
 
