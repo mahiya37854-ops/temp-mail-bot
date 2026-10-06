@@ -368,7 +368,7 @@ async def new_email(message: Message):
         await message.answer(
             "📧 <b>Your temporary email created!</b>\n\n"
             "⏱ Valid for: <b>60 minutes (approx.)</b>\n"
-            "📥 <b>Waiting for new messages!</b>"
+            "📥 <b>Waiting for new messages!</b>",
             reply_markup=email_copy_keyboard(mailbox["address"]),
         )
 
