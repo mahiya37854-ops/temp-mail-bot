@@ -351,7 +351,6 @@ async def new_email(message: Message):
             "📧 <b>Your temporary email created!</b>\n\n"
             "⏱ Valid for: <b>60 minutes (approx.)</b>\n"
             "📥 <b>Waiting for new messages!</b>\n"
-            f"[{html.escape(mailbox['address'])}]"
         )
 
         await message.answer(
