@@ -369,6 +369,10 @@ async def new_email(message: Message):
             text,
             reply_markup=email_copy_keyboard(mailbox["address"]),
         )
+        await message.answer(
+            "👇",
+            reply_markup=main_keyboard(),
+        )
 
     except Exception as error:
         print("New email error:", error)
