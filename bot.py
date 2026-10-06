@@ -359,15 +359,19 @@ async def new_email(message: Message):
             "📥 <b>Waiting for new messages!</b>"
         )
 
+        # Keep this message so the main reply keyboard stays visible.
         try:
-            await status.delete()
-        except Exception as delete_error:
-            print("Status delete warning:", delete_error)
+            await status.edit_text(
+                text,
+                reply_markup=None,
+            )
+        except Exception as edit_error:
+            print("Status edit warning:", edit_error)
 
-        # Keep the main reply keyboard visible after creating the email.
+        # Keep the email copy button as a separate inline button.
         await message.answer(
-            text,
-            reply_markup=main_keyboard(),
+            f"📧 <b>{html.escape(mailbox['address'])}</b>",
+            reply_markup=email_copy_keyboard(mailbox["address"]),
         )
 
     except Exception as error:
