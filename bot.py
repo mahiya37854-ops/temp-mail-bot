@@ -367,7 +367,12 @@ async def new_email(message: Message):
         # One message only. The email itself is the copy button.
         await message.answer(
             text,
-            reply_markup=email_copy_keyboard(mailbox["address"]),
+        reply_markup=email_copy_keyboard(mailbox["address"]),
+        )
+
+        await message.answer(
+            "⠀",
+            reply_markup=main_keyboard(),
         )
 
     except Exception as error:
